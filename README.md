@@ -4,13 +4,32 @@
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue) ![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green) ![Playwright](https://img.shields.io/badge/Playwright-1.45-orange) ![Claude](https://img.shields.io/badge/Claude-Haiku-purple) ![Jinja2](https://img.shields.io/badge/UI-Jinja2-lightgrey)
 
-## Installation en 3 commandes
+## Installation
+
+### Linux / macOS
 
 ```bash
 pip install -r requirements.txt && playwright install chromium
 cp .env.example .env  # renseigner ANTHROPIC_API_KEY + APP_BASE_URL
 uvicorn api:app --reload --port 8000
 ```
+
+### Windows
+
+Sur Windows, pip installe les scripts dans un dossier `Scripts` souvent absent du PATH. Utiliser `python -m` pour contourner :
+
+```bash
+pip install -r requirements.txt
+python -m playwright install chromium
+copy .env.example .env   # renseigner ANTHROPIC_API_KEY + APP_BASE_URL
+python -m uvicorn api:app --reload --port 8000
+```
+
+> **Solution permanente (optionnelle)** — ajouter le dossier Scripts au PATH pour ne plus avoir à préfixer `python -m` :
+> ```bash
+> setx PATH "%PATH%;C:\Users\<TON_USER>\AppData\Roaming\Python\Python313\Scripts"
+> ```
+> Relancer le terminal après cette commande.
 
 Ouvrir `http://localhost:8000` — c'est tout.
 
