@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Historique{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div class="page-title">Historique des runs</div>
+</div>
+
+<div class="content">
+  <div class="table-card">
+    <div class="table-header">
+      <span class="card-label" style="margin:0">Tous les runs</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Run ID</th>
+          <th>Environnement</th>
+          <th>Total</th>
+          <th>Passés</th>
+          <th>Échoués</th>
+          <th>Pass rate</th>
+          <th>Tokens</th>
+          <th>Coût</th>
+          <th>Durée</th>
+          <th>Horodatage</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in runs %}
+        <tr>
+          <td class="mono" style="font-size:11px;color:var(--text-muted)">{{ r.run_id[-20:] }}</td>
+          <td><span class="badge badge-post">{{ r.environment }}</span></td>
+          <td>{{ r.total }}</td>
+          <td style="color:#1D9E75;font-weight:500">{{ r.passed }}</td>
+          <td style="color:{% if r.failed > 0 %}#E24B4A{% else %}var(--text-muted){% endif %};font-weight:500">{{ r.failed }}</td>
+          <td>
+            {% set rate = (r.passed / r.total * 100)|round|int if r.total > 0 else 0 %}
+            <span class="badge badge-{{ 'pass' if rate >= 90 else 'fail' if rate < 70 else 'warn' }}">{{ rate }}%</span>
+          </td>
+          <td style="font-size:12px">{{ r.tokens_used }}</td>
+          <td style="font-size:12px">{{ "%.4f"|format(r.cost_eur) }} €</td>
+          <td style="font-size:12px">{{ r.duration_seconds }}s</td>
+          <td style="color:var(--text-muted);font-size:12px">{{ r.timestamp[:16] }}</td>
+        </tr>
+        {% endfor %}
+        {% if not runs %}
+        <tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:32px">Aucun run pour l'instant</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

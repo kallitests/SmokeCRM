@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Test cases{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div class="page-title">Test cases</div>
+  <div class="topbar-right">
+    <span class="env-badge">{{ total }} tests au catalogue</span>
+  </div>
+</div>
+
+<div class="content">
+  <div class="table-card">
+    <div class="table-header">
+      <span class="card-label" style="margin:0">Catalogue de smoke tests</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nom</th>
+          <th>Endpoint</th>
+          <th>Méthode</th>
+          <th>Statut attendu</th>
+          <th>Criticité</th>
+          <th>Tags</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td class="mono" style="color:var(--text-muted)">{{ t.id }}</td>
+          <td style="font-weight:500">{{ t.name }}</td>
+          <td class="mono">{{ t.endpoint }}</td>
+          <td><span class="badge badge-{{ t.method|lower }}">{{ t.method }}</span></td>
+          <td><span class="badge badge-pass">{{ t.expected_status }}</span></td>
+          <td>
+            <span class="badge badge-{{ 'crit' if t.criticality == 'critical' else 'high' if t.criticality == 'high' else 'med' }}">
+              {{ t.criticality }}
+            </span>
+          </td>
+          <td style="font-size:12px;color:var(--text-muted)">{{ t.tags | join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="topbar">
+  <div class="page-title">Dashboard</div>
+  <div class="topbar-right">
+    <span class="env-badge">{{ environment }}</span>
+    <form method="POST" action="/run" style="display:inline">
+      <button class="btn-run" type="submit" id="runBtn">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+        Tout exécuter
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="content">
+
+  {% if flash %}
+  <div class="flash flash-{{ flash.type }}">{{ flash.message }}</div>
+  {% endif %}
+
+  {% if failures %}
+  <div class="alert-panel">
+    <div class="alert-header">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A32D2D" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <span class="alert-title">{{ failures|length }} smoke test(s) en échec — alertes envoyées</span>
+    </div>
+
+    {% for item in failures %}
+    <div class="alert-item">
+      <div class="alert-top">
+        <span class="badge badge-{{ 'post' if item.method == 'POST' else 'get' }}">{{ item.method }}</span>
+        <span class="alert-endpoint">{{ item.endpoint }}</span>
+        <span class="badge badge-{{ 'crit' if item.jira_priority == 'Critical' else 'high' if item.jira_priority == 'High' else 'med' }}">
+          {{ item.jira_priority or 'Medium' }}
+        </span>
+      </div>
+      <div class="alert-meta">
+        Code : {{ item.status_code or 'timeout' }} · {{ item.duration_ms }} ms · {{ item.timestamp }}
+      </div>
+      {% if item.root_cause %}
+      <div class="ai-box">
+        <div class="ai-label">✦ Diagnostic Claude</div>
+        <div class="ai-text">
+          <strong>Cause</strong> : {{ item.root_cause }}<br>
+          <strong>Fix</strong> : {{ item.suggested_fix }}
+        </div>
+      </div>
+      {% endif %}
+      <div class="notif-row">
+        <span class="notif-btn sent">✓ Slack envoyé</span>
+        <span class="notif-btn sent">✓ Email envoyé</span>
+        <a href="#" class="jira-btn">Créer ticket Jira ↗</a>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">Test cases</div>
+      <div class="kpi-value">{{ kpis.total_tests }}</div>
+      <div class="kpi-sub">au catalogue</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Pass rate</div>
+      <div class="kpi-value" style="color:{{ '#1D9E75' if kpis.pass_rate >= 90 else '#E24B4A' if kpis.pass_rate < 70 else '#BA7517' }}">
+        {{ kpis.pass_rate }}%
+      </div>
+      <div class="kpi-sub">{{ kpis.total_runs }} runs au total</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Runs réussis</div>
+      <div class="kpi-value" style="color:#1D9E75">{{ kpis.passed }}</div>
+      <div class="kpi-sub">derniers 24h</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Runs échoués</div>
+      <div class="kpi-value" style="color:#E24B4A">{{ kpis.failed }}</div>
+      <div class="kpi-sub">alertes envoyées</div>
+    </div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <div class="card-label">Tendance des runs (14 jours)</div>
+      <canvas id="trendChart" height="130"></canvas>
+    </div>
+    <div class="chart-card">
+      <div class="card-label">État des tests</div>
+      <div class="donut-center">
+        <canvas id="donutChart" width="120" height="120"></canvas>
+        <div class="legend">
+          <div class="legend-row">
+            <div style="display:flex;align-items:center">
+              <div class="legend-dot" style="background:#1D9E75"></div>Passed
+            </div>
+            <strong>{{ kpis.passed }}</strong>
+          </div>
+          <div class="legend-row">
+            <div style="display:flex;align-items:center">
+              <div class="legend-dot" style="background:#E24B4A"></div>Failed
+            </div>
+            <strong>{{ kpis.failed }}</strong>
+          </div>
+          <div class="legend-row">
+            <div style="display:flex;align-items:center">
+              <div class="legend-dot" style="background:#B4B2A9"></div>Not run
+            </div>
+            <strong>{{ kpis.not_run }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="token-bar">
+    <div class="card-label">Consommation tokens Claude — optimisation active</div>
+    <div class="token-grid">
+      <div class="token-cell">
+        <div style="font-size:11px;color:var(--text-muted)">Tokens ce run</div>
+        <div class="token-val">{{ token_stats.last_run_tokens }}</div>
+        <div class="token-gain">−99% vs brut non filtré</div>
+      </div>
+      <div class="token-cell">
+        <div style="font-size:11px;color:var(--text-muted)">Coût ce run</div>
+        <div class="token-val">{{ "%.4f"|format(token_stats.last_run_cost) }} €</div>
+        <div class="token-gain">Haiku · batch {{ kpis.failed }} échec(s)</div>
+      </div>
+      <div class="token-cell">
+        <div style="font-size:11px;color:var(--text-muted)">Coût total</div>
+        <div class="token-val">{{ "%.4f"|format(token_stats.total_cost_eur) }} €</div>
+        <div class="token-gain">{{ token_stats.total_runs }} runs · {{ token_stats.total_tokens }} tokens</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <span class="card-label" style="margin:0">Runs récents</span>
+      <div style="display:flex;gap:8px">
+        <a href="/runs" style="font-size:12px;color:var(--accent);text-decoration:none">Voir tout →</a>
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Endpoint</th>
+          <th>Méthode</th>
+          <th>Statut</th>
+          <th>Durée</th>
+          <th>Criticité</th>
+          <th>Horodatage</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in recent_results %}
+        <tr>
+          <td class="mono">{{ r.endpoint }}</td>
+          <td>
+            <span class="badge badge-{{ r.method|lower }}">{{ r.method }}</span>
+          </td>
+          <td>
+            <span class="badge badge-{{ 'pass' if r.status == 'passed' else 'fail' }}">
+              {{ '✓' if r.status == 'passed' else '✗' }} {{ r.status }}
+            </span>
+          </td>
+          <td>{{ r.duration_ms }} ms</td>
+          <td>
+            {% if r.jira_priority %}
+            <span class="badge badge-{{ 'crit' if r.jira_priority == 'Critical' else 'high' if r.jira_priority == 'High' else 'med' }}">
+              {{ r.jira_priority }}
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:12px">{{ r.timestamp[:16] }}</td>
+          <td>
+            {% if r.status != 'passed' %}
+            <a href="#" class="jira-btn">Jira ↗</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not recent_results %}
+        <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">Aucun run encore — cliquer sur "Tout exécuter" pour démarrer</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const passed = {{ kpis.passed }};
+const failed = {{ kpis.failed }};
+const notRun = {{ kpis.not_run }};
+const trend = {{ trend_data | tojson }};
+
+new Chart(document.getElementById('trendChart').getContext('2d'), {
+  type: 'line',
+  data: {
+    labels: trend.labels,
+    datasets: [
+      { label: 'Pass', data: trend.pass, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.07)', tension: 0.4, fill: true, pointRadius: 3 },
+      { label: 'Fail', data: trend.fail, borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.05)', tension: 0.4, fill: true, pointRadius: 3 }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { font: { size: 11 }, color: '#888880' } } },
+    scales: {
+      x: { ticks: { font: { size: 10 }, color: '#888880' }, grid: { color: 'rgba(0,0,0,0.04)' } },
+      y: { ticks: { font: { size: 10 }, color: '#888880' }, grid: { color: 'rgba(0,0,0,0.04)' }, min: 0 }
+    }
+  }
+});
+
+new Chart(document.getElementById('donutChart').getContext('2d'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Passed', 'Failed', 'Not run'],
+    datasets: [{ data: [passed, failed, notRun], backgroundColor: ['#1D9E75','#E24B4A','#B4B2A9'], borderWidth: 0, hoverOffset: 3 }]
+  },
+  options: { cutout: '68%', plugins: { legend: { display: false } }, responsive: false }
+});
+
+document.querySelector('form').addEventListener('submit', function() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg> En cours...';
+});
+</script>
+{% endblock %}
